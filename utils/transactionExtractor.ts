@@ -22,10 +22,6 @@ export class TransactionExtractor {
     "paid",
     "spent",
     "transaction",
-    "amount",
-    "rs",
-    "inr",
-    "₹",
   ];
 
   private static senderPatterns = [
@@ -61,8 +57,8 @@ export class TransactionExtractor {
     const hasTransactionKeyword = TransactionExtractor.transactionKeywords.some(
       (keyword) => content.includes(keyword),
     );
-    const hasSenderSignal = TransactionExtractor.senderPatterns.some((pattern) =>
-      pattern.test(from),
+    const hasSenderSignal = TransactionExtractor.senderPatterns.some(
+      (pattern) => pattern.test(from),
     );
     const hasDirectionSignal =
       this.matchesAny(content, TransactionExtractor.debitPatterns) ||
@@ -73,9 +69,9 @@ export class TransactionExtractor {
       );
 
     return (
+      hasSenderSignal &&
       hasAmount &&
-      ((hasDirectionSignal && (hasTransactionKeyword || hasSenderSignal)) ||
-        (hasSenderSignal && hasReferenceSignal))
+      (hasDirectionSignal || hasReferenceSignal || hasTransactionKeyword)
     );
   }
 
@@ -105,9 +101,15 @@ export class TransactionExtractor {
     let confidence = 0.65;
     if (merchant && merchant !== "Unknown") confidence += 0.1;
     if (type) confidence += 0.1;
-    if (TransactionExtractor.senderPatterns.some((pattern) => pattern.test(from)))
+    if (
+      TransactionExtractor.senderPatterns.some((pattern) => pattern.test(from))
+    )
       confidence += 0.1;
-    if (/\b(?:upi|utr|rrn|transaction id|txn id|ref(?:erence)? no)\b/i.test(content))
+    if (
+      /\b(?:upi|utr|rrn|transaction id|txn id|ref(?:erence)? no)\b/i.test(
+        content,
+      )
+    )
       confidence += 0.05;
     if (confidence > 1) confidence = 1;
 
