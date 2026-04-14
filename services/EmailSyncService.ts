@@ -40,7 +40,7 @@ export class EmailSyncService {
 
     try {
       const gmail = await this.getGmailClient(userId);
-      const after = Math.floor(Date.now() / 1000) - 30 * 24 * 60 * 60; // last 30 days
+      const after = Math.floor(Date.now() / 1000) - 1 * 24 * 60 * 60;
 
       const messageIds = await this.helpers.getAllMessageIds(
         gmail,

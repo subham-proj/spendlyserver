@@ -1,7 +1,9 @@
 import { Email } from "../models/emailModels.js";
 import { createLogger } from "./logger.js";
+import { TransactionExtractor } from "./transactionExtractor.js";
 
 const logger = createLogger("DataProcessingPipeline");
+const transactionExtractor = new TransactionExtractor();
 
 const extractBody = (payload: any): string => {
   if (!payload) {
@@ -27,23 +29,26 @@ export class DataProcessingPipeline {
     logger.info(
       `Starting pipeline for user ${userId} with ${rawEmails.length} raw emails`,
     );
-    const pipeline = [
-      this.parseEmails,
-      this.filterEmails,
-      this.transformEmails,
-    ];
+    const parsedEmails = this.parseEmails(rawEmails);
+    logger.info(
+      `Parsed ${parsedEmails.length} emails for user ${userId}`,
+    );
 
-    let data = rawEmails;
-    for (const step of pipeline) {
-      data = await step(data);
-      logger.debug(`After step ${step.name}, ${data.length} emails remain`);
-    }
+    const filteredEmails = this.filterEmails(parsedEmails);
+    logger.info(
+      `Filtered transaction candidates for user ${userId}: ${filteredEmails.length}/${parsedEmails.length}`,
+    );
+
+    const data = this.transformEmails(filteredEmails);
+    logger.info(
+      `Extracted transactions for user ${userId}: ${data.length}/${filteredEmails.length}`,
+    );
 
     const operations = data.map((e: any) => ({
       updateOne: {
         filter: { messageId: e.id, userId },
         update: {
-          $setOnInsert: {
+          $set: {
             messageId: e.id,
             userId,
             subject: e.subject,
@@ -53,6 +58,7 @@ export class DataProcessingPipeline {
             body: e.body,
             labels: e.labels,
             raw: e.raw,
+            transactionData: e.transactionData || null,
           },
         },
         upsert: true,
@@ -94,20 +100,42 @@ export class DataProcessingPipeline {
     return emails.filter((e) => {
       const isNotSpam = !e.labels.includes("SPAM");
       const isNotDraft = !e.labels.includes("DRAFT");
-      return isNotSpam && isNotDraft;
+      const isTransactional = transactionExtractor.isTransactionalEmail(e);
+      if (!isNotSpam || !isNotDraft) return false;
+      if (!isTransactional) {
+        logger.debug(`Filtered out non-transactional email: ${e.subject}`);
+        return false;
+      }
+      return true;
     });
   }
 
   transformEmails(emails: any[]) {
-    return emails.map((e) => ({
-      id: e.id,
-      subject: e.subject,
-      from: e.from,
-      to: e.to,
-      body: e.body?.slice(0, 10000),
-      date: e.date,
-      labels: e.labels,
-      raw: e.raw,
-    }));
+    return emails
+      .map((e) => {
+        const transaction = transactionExtractor.extractTransaction(e);
+        if (!transaction) {
+          logger.debug(`No transaction data extracted for: ${e.subject}`);
+        }
+        return {
+          id: e.id,
+          subject: e.subject,
+          from: e.from,
+          to: e.to,
+          body: e.body?.slice(0, 10000),
+          date: e.date,
+          labels: e.labels,
+          raw: e.raw,
+          transactionData: transaction,
+        };
+      })
+      .filter((e) => {
+        if (e.transactionData) {
+          return true;
+        }
+
+        logger.debug(`Dropping email without parsed transaction: ${e.subject}`);
+        return false;
+      });
   }
 }
