@@ -1,4 +1,7 @@
 import { Email } from "../models/emailModels.js";
+import { createLogger } from "./logger.js";
+
+const logger = createLogger("DataProcessingPipeline");
 
 const extractBody = (payload: any): string => {
   if (!payload) {
@@ -21,8 +24,8 @@ const extractBody = (payload: any): string => {
 
 export class DataProcessingPipeline {
   async processPipeline(userId: string, rawEmails: any[]) {
-    console.log(
-      `[DataProcessingPipeline] Starting pipeline for user ${userId} with ${rawEmails.length} raw emails`,
+    logger.info(
+      `Starting pipeline for user ${userId} with ${rawEmails.length} raw emails`,
     );
     const pipeline = [
       this.parseEmails,
@@ -33,9 +36,7 @@ export class DataProcessingPipeline {
     let data = rawEmails;
     for (const step of pipeline) {
       data = await step(data);
-      console.log(
-        `[DataProcessingPipeline] After step ${step.name}, ${data.length} emails remain`,
-      );
+      logger.debug(`After step ${step.name}, ${data.length} emails remain`);
     }
 
     const operations = data.map((e: any) => ({
@@ -60,13 +61,11 @@ export class DataProcessingPipeline {
 
     if (operations.length > 0) {
       const result = await Email.bulkWrite(operations, { ordered: false });
-      console.log(
-        `[DataProcessingPipeline] Bulk write completed for user ${userId}. inserted=${result.insertedCount}, upserted=${result.upsertedCount}`,
+      logger.info(
+        `Bulk write completed for user ${userId}. inserted=${result.insertedCount}, upserted=${result.upsertedCount}`,
       );
     } else {
-      console.log(
-        `[DataProcessingPipeline] No email operations to write for user ${userId}`,
-      );
+      logger.info(`No email operations to write for user ${userId}`);
     }
   }
 

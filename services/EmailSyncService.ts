@@ -3,6 +3,9 @@ import { User } from "../models/userModels.js";
 import { GmailSync } from "../models/gmailSyncModels.js";
 import { EmailSyncHelpers } from "../utils/emailSyncHelpers.js";
 import { DataProcessingPipeline } from "../utils/dataProcessingPipeline.js";
+import { createLogger } from "../utils/logger.js";
+
+const logger = createLogger("EmailSyncService");
 
 export class EmailSyncService {
   private helpers = new EmailSyncHelpers();
@@ -11,24 +14,24 @@ export class EmailSyncService {
   private googleClientSecret = process.env.CLIENT_SECRET as string;
 
   async sync(userId: string) {
-    console.log(`[EmailSyncService] Sync requested for user ${userId}`);
+    logger.info(`Sync requested for user ${userId}`);
     const syncRecord = await GmailSync.findOne({ userId });
 
     if (syncRecord?.lastHistoryId) {
-      console.log(
-        `[EmailSyncService] Existing sync record found for user ${userId}. lastHistoryId=${syncRecord.lastHistoryId}`,
+      logger.info(
+        `Existing sync record found for user ${userId}. lastHistoryId=${syncRecord.lastHistoryId}`,
       );
       await this.incrementalSync(userId, syncRecord.lastHistoryId);
     } else {
-      console.log(
-        `[EmailSyncService] No previous sync found for user ${userId}, starting initial sync.`,
+      logger.info(
+        `No previous sync found for user ${userId}, starting initial sync.`,
       );
       await this.initialSync(userId);
     }
   }
 
   async initialSync(userId: string) {
-    console.log(`[EmailSyncService] Starting initial sync for user ${userId}`);
+    logger.info(`Starting initial sync for user ${userId}`);
     await GmailSync.findOneAndUpdate(
       { userId },
       { status: "SYNCING" },
@@ -43,24 +46,18 @@ export class EmailSyncService {
         gmail,
         `after:${after}`,
       );
-      console.log(
-        `[EmailSyncService] Found ${messageIds.length} message IDs for initial sync of user ${userId}`,
+      logger.info(
+        `Found ${messageIds.length} message IDs for initial sync of user ${userId}`,
       );
 
       const emails = await this.helpers.batchFetchEmails(gmail, messageIds);
-      console.log(
-        `[EmailSyncService] Retrieved ${emails.length} emails for user ${userId}`,
-      );
+      logger.info(`Retrieved ${emails.length} emails for user ${userId}`);
 
       await this.pipeline.processPipeline(userId, emails);
-      console.log(
-        `[EmailSyncService] Processed ${emails.length} emails for user ${userId}`,
-      );
+      logger.info(`Processed ${emails.length} emails for user ${userId}`);
 
       const historyId = await this.helpers.getLatestHistoryId(gmail);
-      console.log(
-        `[EmailSyncService] Latest historyId for user ${userId}: ${historyId}`,
-      );
+      logger.info(`Latest historyId for user ${userId}: ${historyId}`);
 
       await GmailSync.findOneAndUpdate(
         { userId },
@@ -72,14 +69,9 @@ export class EmailSyncService {
         },
         { upsert: true, new: true },
       );
-      console.log(
-        `[EmailSyncService] Initial sync completed for user ${userId}`,
-      );
+      logger.info(`Initial sync completed for user ${userId}`);
     } catch (err: any) {
-      console.error(
-        `[EmailSyncService] Initial sync failed for user ${userId}:`,
-        err,
-      );
+      logger.error(`Initial sync failed for user ${userId}:`, err);
       await GmailSync.findOneAndUpdate(
         { userId },
         {
@@ -93,8 +85,8 @@ export class EmailSyncService {
   }
 
   async incrementalSync(userId: string, lastHistoryId: string) {
-    console.log(
-      `[EmailSyncService] Starting incremental sync for user ${userId} from history ${lastHistoryId}`,
+    logger.info(
+      `Starting incremental sync for user ${userId} from history ${lastHistoryId}`,
     );
     const gmail = await this.getGmailClient(userId);
 
@@ -106,8 +98,8 @@ export class EmailSyncService {
       });
 
       const history = historyRes.data.history || [];
-      console.log(
-        `[EmailSyncService] History response contains ${history.length} entries for user ${userId}`,
+      logger.info(
+        `History response contains ${history.length} entries for user ${userId}`,
       );
 
       if (!history.length) {
@@ -119,19 +111,17 @@ export class EmailSyncService {
         .map((m: any) => m.message.id)
         .filter(Boolean);
 
-      console.log(
-        `[EmailSyncService] Found ${newMessageIds.length} new message IDs for user ${userId}`,
+      logger.info(
+        `Found ${newMessageIds.length} new message IDs for user ${userId}`,
       );
       if (!newMessageIds.length) return { synced: 0 };
 
       const emails = await this.helpers.batchFetchEmails(gmail, newMessageIds);
-      console.log(
-        `[EmailSyncService] Retrieved ${emails.length} incremental emails for user ${userId}`,
+      logger.info(
+        `Retrieved ${emails.length} incremental emails for user ${userId}`,
       );
       await this.pipeline.processPipeline(userId, emails);
-      console.log(
-        `[EmailSyncService] Incremental pipeline completed for user ${userId}`,
-      );
+      logger.info(`Incremental pipeline completed for user ${userId}`);
 
       const newHistoryId = historyRes.data.historyId;
       await GmailSync.findOneAndUpdate(
@@ -144,18 +134,15 @@ export class EmailSyncService {
         { upsert: true, new: true },
       );
 
-      console.log(
-        `[EmailSyncService] Incremental sync completed for user ${userId}. newHistoryId=${newHistoryId}`,
+      logger.info(
+        `Incremental sync completed for user ${userId}. newHistoryId=${newHistoryId}`,
       );
       return { synced: newMessageIds.length };
     } catch (err: any) {
-      console.error(
-        `[EmailSyncService] Incremental sync failed for user ${userId}:`,
-        err,
-      );
+      logger.error(`Incremental sync failed for user ${userId}:`, err);
       if (err.code === 410) {
-        console.warn(
-          `[EmailSyncService] History expired for user ${userId}; falling back to initial sync.`,
+        logger.warn(
+          `History expired for user ${userId}; falling back to initial sync.`,
         );
         await GmailSync.findOneAndUpdate(
           { userId },
@@ -172,15 +159,15 @@ export class EmailSyncService {
   }
 
   private async getGmailClient(userId: string) {
-    console.log(`[EmailSyncService] Building Gmail client for user ${userId}`);
+    logger.info(`Building Gmail client for user ${userId}`);
     const user = await User.findById(userId);
     if (!user) {
-      console.error(`[EmailSyncService] User ${userId} not found`);
+      logger.error(`User ${userId} not found`);
       throw new Error("User not found");
     }
 
     if (!user.accessToken) {
-      console.error(`[EmailSyncService] User ${userId} has no access token`);
+      logger.error(`User ${userId} has no access token`);
       throw new Error("User does not have a valid Google access token");
     }
 
@@ -194,7 +181,7 @@ export class EmailSyncService {
     });
 
     const client = google.gmail({ version: "v1", auth });
-    console.log(`[EmailSyncService] Gmail client ready for user ${userId}`);
+    logger.info(`Gmail client ready for user ${userId}`);
     return client;
   }
 }
