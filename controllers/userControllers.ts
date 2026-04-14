@@ -5,6 +5,7 @@ import { SCOPES } from "../contants/globalConstants.js";
 import { User } from "../models/userModels.js";
 import { google } from "googleapis";
 import { generateToken } from "../middleware/authMiddleware.js";
+import { EmailSyncService } from "../services/EmailSyncService.js";
 
 export const oAuthHandler = asyncHandler(
   async (req: Request, res: Response) => {
@@ -71,5 +72,20 @@ export const callbackHandler = asyncHandler(
       const error = err as Error;
       res.status(500).json({ error: error.message });
     }
+  },
+);
+
+export const triggerInitialSync = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = req.userId ?? req.user?._id.toString();
+    if (!userId) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+
+    const syncService = new EmailSyncService();
+    await syncService.initialSync(userId);
+
+    res.status(200).json({ message: "Initial sync completed" });
   },
 );
