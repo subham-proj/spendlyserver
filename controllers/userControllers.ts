@@ -4,6 +4,7 @@ import { oAuth2Client } from "../index.js";
 import { SCOPES } from "../contants/globalConstants.js";
 import { User } from "../models/userModels.js";
 import { google } from "googleapis";
+import { generateToken } from "../middleware/authMiddleware.js";
 
 export const oAuthHandler = asyncHandler(
   async (req: Request, res: Response) => {
@@ -58,7 +59,14 @@ export const callbackHandler = asyncHandler(
         { upsert: true, new: true },
       );
 
-      res.json({ message: "Authenticated!", user, tokens });
+      const jwtToken = generateToken(user._id.toString());
+
+      res.json({
+        message: "Authenticated!",
+        user,
+        token: jwtToken,
+        googleTokens: tokens,
+      });
     } catch (err) {
       const error = err as Error;
       res.status(500).json({ error: error.message });
