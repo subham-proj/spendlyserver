@@ -16,26 +16,37 @@ export class TransactionExtractor {
   private static transactionKeywords = [
     "debited",
     "credited",
-    "payment",
-    "received",
-    "sent",
-    "paid",
-    "spent",
     "transaction",
+    "txn",
+    "utr",
+    "rrn",
+    "avl bal",
+    "available balance",
+    "account",
+    "a/c",
+    "received",
   ];
 
   private static senderPatterns = [
     /@(?:.*\.)?(?:hdfcbank|icicibank|axisbank|sbi|onlinesbi|kotak|yesbank|indusind|idfcfirstbank|bankofbaroda|federalbank|canarabank|pnb|unionbank|aubank)\./i,
     /@(?:.*\.)?(?:paytm|phonepe|googlepay|tez|amazonpay|mobikwik|freecharge|cred|slice|simpl)\./i,
-    /\b(?:bank|upi|wallet|card|netbanking|imps|neft|rtgs)\b/i,
+  ];
+
+  private static blockedSenderLocalPartPatterns = [
+    /\b(?:creditcards?|offers?|marketing|campaigns?|promo(?:tion)?s?|deals?|newsletter)\b/i,
+  ];
+
+  private static promotionalPatterns = [
+    /\b(?:emi|easy emi|no cost emi|pay easy|shop more|pre-?approved|eligible|apply now|apply today|limited time|exclusive offer|special offer|deal(?:s)?|sale)\b/i,
+    /\b(?:cashback offer|reward points?|shopping festival|instant discount|shop now|buy now|click here|offer valid till)\b/i,
   ];
 
   private static debitPatterns = [
-    /\b(?:debited|debit|paid|spent|sent|withdrawn|charged|deducted|purchase|payment made|bill paid)\b/i,
+    /\b(?:debited|debit|withdrawn|charged|deducted|bill paid|purchase made|dr\b)\b/i,
   ];
 
   private static creditPatterns = [
-    /\b(?:credited|credit|received|deposited|refund|cashback|reversal|reversed)\b/i,
+    /\b(?:credited|credit|received|deposited|refund|cashback|reversal|reversed|cr\b)\b/i,
   ];
 
   private static amountPatterns = [
@@ -49,16 +60,28 @@ export class TransactionExtractor {
     const from = this.normalize(email.from);
     const content = `${subject} ${body}`.trim();
 
+    const hasSenderSignal = TransactionExtractor.senderPatterns.some(
+      (pattern) => pattern.test(from),
+    );
+    if (!hasSenderSignal) {
+      return false;
+    }
+
+    if (this.hasBlockedSender(from)) {
+      return false;
+    }
+
     if (!content) {
       return false;
     }
 
     const hasAmount = this.extractAmount(content) !== null;
+    if (!hasAmount) {
+      return false;
+    }
+
     const hasTransactionKeyword = TransactionExtractor.transactionKeywords.some(
       (keyword) => content.includes(keyword),
-    );
-    const hasSenderSignal = TransactionExtractor.senderPatterns.some(
-      (pattern) => pattern.test(from),
     );
     const hasDirectionSignal =
       this.matchesAny(content, TransactionExtractor.debitPatterns) ||
@@ -67,12 +90,42 @@ export class TransactionExtractor {
       /\b(?:upi|utr|rrn|ref(?:erence)?(?: no)?|transaction id|txn id|a\/c|account|card ending|avl bal|available balance)\b/i.test(
         content,
       );
+    const promotionalMatches = this.getPromotionalMatches(content);
+    const hasPromotionalSignals = promotionalMatches.length > 0;
+    const hasHardSignal = hasDirectionSignal || hasReferenceSignal;
 
-    return (
-      hasSenderSignal &&
-      hasAmount &&
-      (hasDirectionSignal || hasReferenceSignal || hasTransactionKeyword)
+    if (hasPromotionalSignals && !hasHardSignal) {
+      return false;
+    }
+
+    const isTransactional = hasHardSignal && hasTransactionKeyword;
+
+    return isTransactional;
+  }
+
+  private hasBlockedSender(from: string): boolean {
+    const localPart = this.getSenderLocalPart(from);
+    if (!localPart) {
+      return false;
+    }
+
+    return TransactionExtractor.blockedSenderLocalPartPatterns.some((pattern) =>
+      pattern.test(localPart),
     );
+  }
+
+  private getPromotionalMatches(content: string): string[] {
+    return TransactionExtractor.promotionalPatterns
+      .map((pattern) => {
+        const match = content.match(pattern);
+        return match ? match[0] : "";
+      })
+      .filter(Boolean);
+  }
+
+  private getSenderLocalPart(from: string): string {
+    const match = from.match(/<?([^@\s<>]+)@/i);
+    return match?.[1]?.toLowerCase() || "";
   }
 
   extractTransaction(email: any): TransactionData | null {
@@ -98,19 +151,35 @@ export class TransactionExtractor {
     const date = this.parseDate(email.date);
 
     // Confidence
-    let confidence = 0.65;
+    let confidence = 0.55;
     if (merchant && merchant !== "Unknown") confidence += 0.1;
-    if (type) confidence += 0.1;
+    if (type) confidence += 0.15;
     if (
       TransactionExtractor.senderPatterns.some((pattern) => pattern.test(from))
     )
-      confidence += 0.1;
+      confidence += 0.15;
     if (
       /\b(?:upi|utr|rrn|transaction id|txn id|ref(?:erence)? no)\b/i.test(
         content,
       )
     )
-      confidence += 0.05;
+      confidence += 0.1;
+
+    const promotionalMatches = this.getPromotionalMatches(content);
+    if (promotionalMatches.length) {
+      confidence -= 0.35;
+    }
+    if (this.hasBlockedSender(from)) {
+      confidence -= 0.4;
+    }
+    if (this.isMerchantFromSender(merchant, from)) {
+      confidence -= 0.15;
+    }
+
+    if (confidence < 0.55) {
+      return null;
+    }
+
     if (confidence > 1) confidence = 1;
 
     // Category (basic)
@@ -233,6 +302,24 @@ export class TransactionExtractor {
     }
 
     return "";
+  }
+
+  private isMerchantFromSender(merchant: string, from: string): boolean {
+    if (!merchant) {
+      return false;
+    }
+
+    const normalizedMerchant = merchant.toLowerCase();
+    const senderNameMatch = from.match(/^"?([^"<@]+)"?\s*</);
+    const senderName = senderNameMatch?.[1]?.trim().toLowerCase() || "";
+    const senderDomainMatch = from.match(/@([a-z0-9.-]+)/i);
+    const senderDomainPrefix =
+      senderDomainMatch?.[1]?.split(".")[0]?.toLowerCase() || "";
+
+    return (
+      normalizedMerchant === senderName ||
+      normalizedMerchant === senderDomainPrefix
+    );
   }
 
   private parseDate(value: unknown): Date {

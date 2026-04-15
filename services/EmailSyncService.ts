@@ -7,6 +7,15 @@ import { createLogger } from "../utils/logger.js";
 
 const logger = createLogger("EmailSyncService");
 
+const PRIMARY_INBOX_QUERY_SUFFIX =
+  "in:inbox -category:promotions -category:social -category:forums";
+
+const EXCLUDED_NON_PRIMARY_LABELS = new Set([
+  "CATEGORY_PROMOTIONS",
+  "CATEGORY_SOCIAL",
+  "CATEGORY_FORUMS",
+]);
+
 export class EmailSyncService {
   private helpers = new EmailSyncHelpers();
   private pipeline = new DataProcessingPipeline();
@@ -41,13 +50,11 @@ export class EmailSyncService {
     try {
       const gmail = await this.getGmailClient(userId);
       const after = Math.floor(Date.now() / 1000) - 1 * 24 * 60 * 60;
+      const query = `after:${after} ${PRIMARY_INBOX_QUERY_SUFFIX}`;
 
-      const messageIds = await this.helpers.getAllMessageIds(
-        gmail,
-        `after:${after}`,
-      );
+      const messageIds = await this.helpers.getAllMessageIds(gmail, query);
       logger.info(
-        `Found ${messageIds.length} message IDs for initial sync of user ${userId}`,
+        `Found ${messageIds.length} primary-inbox message IDs for initial sync of user ${userId}`,
       );
 
       const emails = await this.helpers.batchFetchEmails(gmail, messageIds);
@@ -117,10 +124,13 @@ export class EmailSyncService {
       if (!newMessageIds.length) return { synced: 0 };
 
       const emails = await this.helpers.batchFetchEmails(gmail, newMessageIds);
-      logger.info(
-        `Retrieved ${emails.length} incremental emails for user ${userId}`,
+      const primaryEmails = emails.filter((email: any) =>
+        this.isPrimaryInboxEmail(email.labelIds || []),
       );
-      await this.pipeline.processPipeline(userId, emails);
+      logger.info(
+        `Retrieved ${emails.length} incremental emails for user ${userId}; primary-inbox retained=${primaryEmails.length}`,
+      );
+      await this.pipeline.processPipeline(userId, primaryEmails);
       logger.info(`Incremental pipeline completed for user ${userId}`);
 
       const newHistoryId = historyRes.data.historyId;
@@ -137,7 +147,7 @@ export class EmailSyncService {
       logger.info(
         `Incremental sync completed for user ${userId}. newHistoryId=${newHistoryId}`,
       );
-      return { synced: newMessageIds.length };
+      return { synced: primaryEmails.length };
     } catch (err: any) {
       logger.error(`Incremental sync failed for user ${userId}:`, err);
       if (err.code === 410) {
@@ -183,5 +193,13 @@ export class EmailSyncService {
     const client = google.gmail({ version: "v1", auth });
     logger.info(`Gmail client ready for user ${userId}`);
     return client;
+  }
+
+  private isPrimaryInboxEmail(labelIds: string[]): boolean {
+    if (!labelIds.includes("INBOX")) {
+      return false;
+    }
+
+    return labelIds.every((label) => !EXCLUDED_NON_PRIMARY_LABELS.has(label));
   }
 }

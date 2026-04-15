@@ -87,7 +87,6 @@ export class DataProcessingPipeline {
         date: new Date(get("date")),
         body,
         labels: msg.labelIds || [],
-        raw: msg,
       };
     });
   }
@@ -118,10 +117,8 @@ export class DataProcessingPipeline {
           subject: e.subject,
           from: e.from,
           to: e.to,
-          body: e.body?.slice(0, 10000),
           date: e.date,
           labels: e.labels,
-          raw: e.raw,
           transactionData: transaction,
         };
       })
