@@ -7,9 +7,7 @@ export interface IEmail extends Document {
   from: string;
   to: string;
   date: Date;
-  body: string;
   labels: string[];
-  raw: any;
   transactionData: {
     amount: number;
     currency: string;
@@ -63,21 +61,9 @@ const emailSchema = new Schema<IEmail>(
       type: String,
       default: "",
     },
-    date: {
-      type: Date,
-      default: Date.now,
-    },
-    body: {
-      type: String,
-      default: "",
-    },
     labels: {
       type: [String],
       default: [],
-    },
-    raw: {
-      type: Schema.Types.Mixed,
-      default: {},
     },
     transactionData: {
       type: transactionDataSchema,

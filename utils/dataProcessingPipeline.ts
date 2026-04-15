@@ -30,9 +30,7 @@ export class DataProcessingPipeline {
       `Starting pipeline for user ${userId} with ${rawEmails.length} raw emails`,
     );
     const parsedEmails = this.parseEmails(rawEmails);
-    logger.info(
-      `Parsed ${parsedEmails.length} emails for user ${userId}`,
-    );
+    logger.info(`Parsed ${parsedEmails.length} emails for user ${userId}`);
 
     const filteredEmails = this.filterEmails(parsedEmails);
     logger.info(
@@ -55,9 +53,7 @@ export class DataProcessingPipeline {
             from: e.from,
             to: e.to || "",
             date: e.date,
-            body: e.body,
             labels: e.labels,
-            raw: e.raw,
             transactionData: e.transactionData || null,
           },
         },
