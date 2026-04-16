@@ -6,8 +6,8 @@ import { google } from "googleapis";
 import bodyParser from "body-parser";
 import connectDB from "./utils/db.js";
 
-import userRoutes from "./routes/userRoutes.js";
-import { callbackHandler } from "./controllers/userControllers.js";
+import appRoutes from "./routes/index.js";
+import { callbackHandler } from "./controllers/index.js";
 
 dotenv.config();
 connectDB();
@@ -32,7 +32,7 @@ app.use(
 app.use(bodyParser.json({ limit: "50mb" }));
 app.use(bodyParser.urlencoded({ limit: "50mb", extended: true }));
 
-app.use("/api/users", userRoutes);
+app.use("/api", appRoutes);
 app.get("/auth/callback", callbackHandler);
 
 app.listen(PORT, () => {
