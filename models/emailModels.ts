@@ -76,5 +76,10 @@ const emailSchema = new Schema<IEmail>(
 );
 
 emailSchema.index({ userId: 1, messageId: 1 }, { unique: true });
+emailSchema.index({
+  userId: 1,
+  "transactionData.date": -1,
+  "transactionData.type": 1,
+});
 
 export const Email = mongoose.model<IEmail>("Email", emailSchema);
