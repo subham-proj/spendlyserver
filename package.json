@@ -6,7 +6,7 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
-    "dev": "nodemon --exec tsx index.ts"
+    "dev": "nodemon --exec tsx index.ts --ext ts,js,json"
   },
   "keywords": [],
   "author": "",

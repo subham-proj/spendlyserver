@@ -7,6 +7,7 @@ export interface IUser extends Document {
   scope: string | null;
   refreshTokenExpiresIn: number | null;
   expiryDate: number | null;
+  lastHistoryId: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -38,6 +39,10 @@ const userSchema = new Schema<IUser>(
     },
     expiryDate: {
       type: Number,
+      default: null,
+    },
+    lastHistoryId: {
+      type: String,
       default: null,
     },
   },

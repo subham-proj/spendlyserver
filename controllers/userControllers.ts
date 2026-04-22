@@ -59,6 +59,30 @@ export const callbackHandler = asyncHandler(
         { upsert: true, new: true },
       );
 
+      // Register Gmail push notifications so new emails trigger the webhook
+      try {
+        const watchRes = await gmail.users.watch({
+          userId: "me",
+          requestBody: {
+            labelIds: ["INBOX"],
+            topicName: process.env.GMAIL_PUBSUB_TOPIC,
+          },
+        });
+        // Store the watch historyId as the anchor for history.list queries
+        if (watchRes.data.historyId) {
+          await User.findOneAndUpdate(
+            { email },
+            { lastHistoryId: watchRes.data.historyId.toString() },
+          );
+        }
+        console.log(`[OAuth] Gmail watch registered for ${email}`);
+      } catch (watchErr) {
+        console.warn(
+          `[OAuth] gmail.users.watch failed for ${email}:`,
+          (watchErr as Error).message,
+        );
+      }
+
       const jwtToken = generateToken(user._id.toString());
 
       res.json({
