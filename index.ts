@@ -8,6 +8,7 @@ import connectDB from "./utils/db.js";
 
 import userRoutes from "./routes/userRoutes.js";
 import gmailWebhookRoutes from "./routes/gmailWebhookRoutes.js";
+import analyticsRoutes from "./routes/analyticsRoutes.js";
 import { callbackHandler } from "./controllers/userControllers.js";
 import "./queues/emailWorker.js";
 import { emailQueue } from "./queues/emailQueue.js";
@@ -39,6 +40,7 @@ app.use(bodyParser.json({ limit: "50mb" }));
 app.use(bodyParser.urlencoded({ limit: "50mb", extended: true }));
 
 app.use("/api/users", userRoutes);
+app.use("/api/analytics", analyticsRoutes);
 app.use("/webhook", gmailWebhookRoutes);
 app.get("/auth/callback", callbackHandler);
 
