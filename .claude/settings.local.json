@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C /Users/subhamsingh/Documents/spendlyserver log --oneline --all -- controllers/ routes/ services/)",
+      "Bash(git -C /Users/subhamsingh/Documents/spendlyserver show 4e4801f --name-status)",
+      "Bash(git -C /Users/subhamsingh/Documents/spendlyserver diff HEAD~5 HEAD --name-status)",
+      "Bash(git -C /Users/subhamsingh/Documents/spendlyserver ls-files)",
+      "Bash(grep -E \"\\\\.ts$\")",
+      "Bash(git:*)",
+      "Bash(gcloud pubsub subscriptions describe:*)",
+      "Bash(curl:*)",
+      "Bash(npx tsc:*)",
+      "Bash(node:*)",
+      "Bash(python3 -c \"import sys,json; t=json.load\\(sys.stdin\\)['tunnels']; print\\(t[0]['public_url'] if t else 'ngrok not running'\\)\")",
+      "Bash(gcloud pubsub subscriptions pull:*)",
+      "Bash(gcloud pubsub subscriptions create:*)",
+      "Bash(gcloud pubsub topics get-iam-policy:*)",
+      "Bash(npm run:*)",
+      "Bash(kill %1)",
+      "Bash(wait)",
+      "Bash(redis-cli keys:*)",
+      "Bash(redis-cli llen:*)",
+      "Bash(redis-cli zcard:*)",
+      "Bash(redis-cli hgetall:*)",
+      "Bash(npm install:*)",
+      "Bash(npm info:*)"
+    ]
+  }
+}

@@ -12,14 +12,18 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@bull-board/api": "^7.0.0",
+    "@bull-board/express": "^7.0.0",
     "axios": "^1.15.0",
     "body-parser": "^2.2.2",
+    "bullmq": "^5.76.1",
     "colors": "^1.4.0",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "express-async-handler": "^1.2.0",
     "googleapis": "^171.4.0",
+    "groq-sdk": "^1.1.2",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.4.1"
   },

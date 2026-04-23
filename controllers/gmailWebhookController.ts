@@ -2,6 +2,7 @@ import asyncHandler from "express-async-handler";
 import { Request, Response } from "express";
 import { google } from "googleapis";
 import { User } from "../models/userModels.js";
+import { emailQueue } from "../queues/emailQueue.js";
 
 interface PubSubPushPayload {
   message: {
@@ -82,12 +83,18 @@ export const gmailWebhookHandler = asyncHandler(
     const startHistoryId = user.lastHistoryId ?? (BigInt(historyId) - 1n).toString();
     console.log("[GmailWebhook] Calling history.list with startHistoryId:", startHistoryId);
 
-    // Update lastHistoryId to the current notification's historyId before fetching,
-    // so concurrent notifications don't re-process the same messages.
-    await User.findOneAndUpdate(
-      { email: emailAddress.toLowerCase() },
-      { lastHistoryId: historyId.toString() },
-    );
+    // Only advance lastHistoryId — never roll it back.
+    // Pub/Sub can deliver notifications out of order; a stale (lower) historyId
+    // arriving after a newer one must not rewind the anchor or we re-process
+    // already-seen messages on the next notification.
+    const incomingId = BigInt(historyId);
+    const storedId = user.lastHistoryId ? BigInt(user.lastHistoryId) : 0n;
+    if (incomingId > storedId) {
+      await User.findOneAndUpdate(
+        { email: emailAddress.toLowerCase() },
+        { lastHistoryId: historyId.toString() },
+      );
+    }
 
     let historyResponse;
     try {
@@ -114,12 +121,20 @@ export const gmailWebhookHandler = asyncHandler(
         const messageId = added.message?.id;
         if (!messageId) continue;
 
-        const msgResponse = await gmail.users.messages.get({
-          userId: "me",
-          id: messageId,
-          format: "metadata",
-          metadataHeaders: ["From", "To", "Date"],
-        });
+        let msgResponse;
+        try {
+          msgResponse = await gmail.users.messages.get({
+            userId: "me",
+            id: messageId,
+            format: "metadata",
+            metadataHeaders: ["From", "To", "Date", "Subject"],
+          });
+        } catch (msgErr) {
+          // 404 = message was deleted/trashed before we could fetch it. Skip it.
+          // Any other error: log and skip so we still return 200 and don't trigger a Pub/Sub retry.
+          console.warn(`[GmailWebhook] messages.get failed for ${messageId}:`, (msgErr as Error).message);
+          continue;
+        }
 
         const headers = msgResponse.data.payload?.headers ?? [];
         const getHeader = (name: string) =>
@@ -127,14 +142,26 @@ export const gmailWebhookHandler = asyncHandler(
             (h) => h.name?.toLowerCase() === name.toLowerCase(),
           )?.value ?? null;
 
-        const emailLog = {
-          from: getHeader("From"),
-          to: getHeader("To"),
-          date: getHeader("Date"),
-          messageId: msgResponse.data.id,
-        };
+        const from = getHeader("From") ?? "";
+        const subject = getHeader("Subject") ?? "";
+        const snippet = msgResponse.data.snippet ?? "";
+        const emailDate = getHeader("Date") ?? new Date().toISOString();
 
-        console.log("[GmailWebhook] New email received:", emailLog);
+        console.log("[GmailWebhook] New email received:", {
+          from,
+          to: getHeader("To"),
+          date: emailDate,
+          messageId: msgResponse.data.id,
+        });
+
+        await emailQueue.add("process-email", {
+          messageId: msgResponse.data.id ?? messageId,
+          userId: user._id.toString(),
+          from,
+          subject,
+          snippet,
+          emailDate,
+        });
       }
     }
 

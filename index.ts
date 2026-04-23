@@ -9,6 +9,11 @@ import connectDB from "./utils/db.js";
 import userRoutes from "./routes/userRoutes.js";
 import gmailWebhookRoutes from "./routes/gmailWebhookRoutes.js";
 import { callbackHandler } from "./controllers/userControllers.js";
+import "./queues/emailWorker.js";
+import { emailQueue } from "./queues/emailQueue.js";
+import { createBullBoard } from "@bull-board/api";
+import { BullMQAdapter } from "@bull-board/api/bullMQAdapter";
+import { ExpressAdapter } from "@bull-board/express";
 
 dotenv.config();
 connectDB();
@@ -36,6 +41,15 @@ app.use(bodyParser.urlencoded({ limit: "50mb", extended: true }));
 app.use("/api/users", userRoutes);
 app.use("/webhook", gmailWebhookRoutes);
 app.get("/auth/callback", callbackHandler);
+
+// BullMQ dashboard — http://localhost:PORT/queues
+const serverAdapter = new ExpressAdapter();
+serverAdapter.setBasePath("/queues");
+createBullBoard({
+  queues: [new BullMQAdapter(emailQueue)],
+  serverAdapter,
+});
+app.use("/queues", serverAdapter.getRouter());
 
 app.listen(PORT, () => {
   console.log(
