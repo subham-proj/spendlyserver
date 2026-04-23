@@ -23,7 +23,10 @@
       "Bash(redis-cli zcard:*)",
       "Bash(redis-cli hgetall:*)",
       "Bash(npm install:*)",
-      "Bash(npm info:*)"
+      "Bash(npm info:*)",
+      "Bash(redis-cli zrange:*)",
+      "Bash(redis-cli hget:*)",
+      "Bash(npx tsx:*)"
     ]
   }
 }
