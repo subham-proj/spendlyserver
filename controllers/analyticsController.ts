@@ -89,6 +89,21 @@ export const getDailyExpenses = asyncHandler(
   },
 );
 
+export const getRecentTransactions = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = new mongoose.Types.ObjectId(req.userId!);
+    const limit = Math.min(parseInt((req.query.limit as string) ?? "10", 10), 50);
+
+    const transactions = await Transaction.find({ userId, amount: { $ne: null } })
+      .sort({ emailDate: -1 })
+      .limit(limit)
+      .select("merchant amount currency category transactionType emailDate subject")
+      .lean();
+
+    res.json({ transactions });
+  },
+);
+
 export const getAnalyticsSummary = asyncHandler(
   async (req: Request, res: Response) => {
     const userId = new mongoose.Types.ObjectId(req.userId!);
