@@ -72,7 +72,7 @@ export const callbackHandler = asyncHandler(
         if (watchRes.data.historyId) {
           await User.findOneAndUpdate(
             { email },
-            { lastHistoryId: watchRes.data.historyId.toString() },
+            { $set: { lastHistoryId: watchRes.data.historyId.toString() } },
           );
         }
         console.log(`[OAuth] Gmail watch registered for ${email}`);

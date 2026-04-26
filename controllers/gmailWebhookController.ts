@@ -67,8 +67,10 @@ export const gmailWebhookHandler = asyncHandler(
         await User.findOneAndUpdate(
           { email: emailAddress.toLowerCase() },
           {
-            accessToken: newTokens.access_token,
-            expiryDate: newTokens.expiry_date ?? null,
+            $set: {
+              accessToken: newTokens.access_token,
+              expiryDate: newTokens.expiry_date ?? null,
+            },
           },
         );
       }
@@ -92,7 +94,7 @@ export const gmailWebhookHandler = asyncHandler(
     if (incomingId > storedId) {
       await User.findOneAndUpdate(
         { email: emailAddress.toLowerCase() },
-        { lastHistoryId: historyId.toString() },
+        { $set: { lastHistoryId: historyId.toString() } },
       );
     }
 
