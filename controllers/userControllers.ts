@@ -185,3 +185,17 @@ export const mobileCallbackHandler = asyncHandler(
     }
   },
 );
+
+// Returns the authenticated user's profile — safe fields only, no tokens
+export const getUserProfile = asyncHandler(
+  async (req: Request, res: Response) => {
+    const user = req.user!;
+    res.json({
+      email: user.email,
+      memberSince: user.createdAt,
+      gmailConnected: user.accessToken !== null,
+      lastSynced: user.updatedAt,
+    });
+  },
+);
+
