@@ -9,7 +9,10 @@ import connectDB from "./utils/db.js";
 import userRoutes from "./routes/userRoutes.js";
 import gmailWebhookRoutes from "./routes/gmailWebhookRoutes.js";
 import analyticsRoutes from "./routes/analyticsRoutes.js";
-import { callbackHandler } from "./controllers/userControllers.js";
+import {
+  callbackHandler,
+  mobileCallbackHandler,
+} from "./controllers/userControllers.js";
 import "./queues/emailWorker.js";
 import { emailQueue } from "./queues/emailQueue.js";
 import { createBullBoard } from "@bull-board/api";
@@ -30,6 +33,15 @@ export const oAuth2Client = new google.auth.OAuth2(
   process.env.OAUTH_REDIRECT_URI ?? `http://localhost:${PORT}/auth/callback`,
 );
 
+// OAuth2 Client for mobile — Google redirects to SERVER_URL (ngrok for dev, deployed domain for prod),
+// which then deep-links back to the app with the JWT.
+const SERVER_URL = process.env.SERVER_URL || `http://localhost:${PORT}`;
+export const mobileOAuth2Client = new google.auth.OAuth2(
+  process.env.CLIENT_ID,
+  process.env.CLIENT_SECRET,
+  `${SERVER_URL}/auth/mobile-callback`,
+);
+
 app.use(
   cors({
     origin: true,
@@ -43,6 +55,7 @@ app.use("/api/users", userRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/webhook", gmailWebhookRoutes);
 app.get("/auth/callback", callbackHandler);
+app.get("/auth/mobile-callback", mobileCallbackHandler);
 
 // BullMQ dashboard — http://localhost:PORT/queues
 const serverAdapter = new ExpressAdapter();
