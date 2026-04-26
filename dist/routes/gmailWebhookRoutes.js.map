@@ -1,0 +1,1 @@
+{"version":3,"file":"gmailWebhookRoutes.js","sourceRoot":"","sources":["../../routes/gmailWebhookRoutes.ts"],"names":[],"mappings":"AAAA,OAAO,OAAO,MAAM,SAAS,CAAC;AAC9B,OAAO,EAAE,mBAAmB,EAAE,MAAM,0CAA0C,CAAC;AAE/E,MAAM,MAAM,GAAG,OAAO,CAAC,MAAM,EAAE,CAAC;AAEhC,oEAAoE;AACpE,MAAM,CAAC,IAAI,CAAC,QAAQ,EAAE,mBAAmB,CAAC,CAAC;AAE3C,eAAe,MAAM,CAAC;AAEtB,4DAA4D;AAC5D,yEAAyE"}
