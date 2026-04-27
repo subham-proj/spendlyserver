@@ -43,7 +43,8 @@ export const getTransactions = asyncHandler(async (req: Request, res: Response) 
 
   if (search?.trim()) {
     const escaped = search.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    filter.merchant = { $regex: escaped, $options: "i" };
+    const regex = { $regex: escaped, $options: "i" };
+    filter.$or = [{ merchant: regex }, { shortName: regex }];
   }
 
   if (dateFrom || dateTo) {
@@ -69,7 +70,7 @@ export const getTransactions = asyncHandler(async (req: Request, res: Response) 
       .sort(sortObj)
       .skip(skip)
       .limit(limit)
-      .select("merchant amount currency category transactionType emailDate subject from")
+      .select("merchant shortName amount currency category transactionType emailDate subject from")
       .lean(),
     Transaction.countDocuments(filter),
   ]);

@@ -54,6 +54,7 @@ export const emailWorker = new Worker<EmailJobPayload>(
         amount: result.amount,
         currency: result.currency ?? "INR",
         merchant: result.merchant,
+        shortName: result.shortName,
         category: result.category,
         transactionType: result.transactionType,
         rawSnippet: snippet,
@@ -78,7 +79,7 @@ export const emailWorker = new Worker<EmailJobPayload>(
       const prefs = user?.preferences;
       if (prefs?.notificationsEnabled && prefs.expoPushToken) {
         const currency = result.currency ?? "INR";
-        const merchant = result.merchant ?? "Unknown merchant";
+        const merchant = result.shortName ?? result.merchant ?? "Unknown merchant";
         const typeLabel = result.transactionType === "credit" ? "received" : "spent";
         const notifBody = `${merchant} • ${currency} ${result.amount} ${typeLabel}`;
         sendExpoPushNotification(

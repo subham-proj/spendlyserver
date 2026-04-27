@@ -6,6 +6,7 @@ export interface ExtractionResult {
   amount: number | null;
   currency: string;
   merchant: string | null;
+  shortName: string | null;
   category: TransactionCategory | null;
   transactionType: TransactionType | null;
   transactionDate: string | null;
@@ -26,6 +27,7 @@ Respond with a single JSON object matching this exact schema (no markdown, no ex
   "amount": number | null,
   "currency": "INR" | "USD" | "EUR" | string,
   "merchant": string | null,
+  "shortName": string | null,
   "category": "food" | "shopping" | "travel" | "utilities" | "entertainment" | "health" | "finance" | "transfer" | "other" | null,
   "transactionType": "debit" | "credit" | null,
   "transactionDate": "ISO-8601 date string" | null
@@ -35,7 +37,8 @@ Rules:
 - amount must be a plain number (no currency symbols, no commas), e.g. 1500.00
 - If the email is a newsletter, promotional, or non-financial, set isTransactional to false and all other fields to null.
 - For UPI peer-to-peer transfers set category to "transfer".
-- For EMI, loan repayment, mutual fund SIP, stock purchase set category to "finance".`;
+- For EMI, loan repayment, mutual fund SIP, stock purchase set category to "finance".
+- shortName must be 1-3 words: the well-known consumer brand or app name, NOT the legal entity name. Examples: "Bundl Technologies" → "Swiggy", "ANI Technologies" → "Ola", "Munchmart Technologies" → "Swish", "One97 Communications" → "Paytm", "Uber India Systems" → "Uber", "Prosus Ventures" → "PayU". If merchant is already a recognisable brand (e.g. "Amazon", "Netflix", "Zomato"), use it as-is. If the brand is unknown, use a clean 1-3 word version of the merchant name.`;
 
 // Strip zero-width chars and collapse whitespace that HTML emails embed as spacers.
 // Without this, Gmail snippets from marketing emails are just ‌ ‌ ‌ ‌ — useless to Groq.
@@ -60,6 +63,7 @@ export async function extractTransaction(
     amount: null,
     currency: "INR",
     merchant: null,
+    shortName: null,
     category: null,
     transactionType: null,
     transactionDate: null,
@@ -77,7 +81,7 @@ export async function extractTransaction(
         },
       ],
       temperature: 0,
-      max_tokens: 256,
+      max_tokens: 300,
     });
 
     const raw = completion.choices[0]?.message?.content;
