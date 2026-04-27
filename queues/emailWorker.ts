@@ -2,8 +2,30 @@ import { Worker } from "bullmq";
 import mongoose from "mongoose";
 import "colors";
 import { Transaction } from "../models/transactionModel.js";
+import { User } from "../models/userModels.js";
 import { extractTransaction } from "../utils/transactionExtractor.js";
 import type { EmailJobPayload } from "./emailQueue.js";
+
+async function sendExpoPushNotification(
+  pushToken: string,
+  title: string,
+  body: string,
+  data?: Record<string, unknown>,
+) {
+  try {
+    await fetch("https://exp.host/--/api/v2/push/send", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        "Accept-Encoding": "gzip, deflate",
+      },
+      body: JSON.stringify({ to: pushToken, title, body, data, sound: "default" }),
+    });
+  } catch (err) {
+    console.warn("[EmailWorker] Push notification failed:", (err as Error).message);
+  }
+}
 
 export const emailWorker = new Worker<EmailJobPayload>(
   "email-processing",
@@ -21,8 +43,7 @@ export const emailWorker = new Worker<EmailJobPayload>(
       return;
     }
 
-    // Upsert so Pub/Sub retries don't create duplicate transactions
-    await Transaction.findOneAndUpdate(
+    const transaction = await Transaction.findOneAndUpdate(
       { messageId },
       {
         userId: new mongoose.Types.ObjectId(userId),
@@ -50,6 +71,25 @@ export const emailWorker = new Worker<EmailJobPayload>(
         category: result.category,
       }),
     );
+
+    // Fire-and-forget push notification if user has it enabled
+    if (result.amount !== null) {
+      const user = await User.findById(userId).select("preferences").lean();
+      const prefs = user?.preferences;
+      if (prefs?.notificationsEnabled && prefs.expoPushToken) {
+        const currency = result.currency ?? "INR";
+        const merchant = result.merchant ?? "Unknown merchant";
+        const typeLabel = result.transactionType === "credit" ? "received" : "spent";
+        const notifBody = `${merchant} • ${currency} ${result.amount} ${typeLabel}`;
+        sendExpoPushNotification(
+          prefs.expoPushToken,
+          "New Transaction Detected",
+          notifBody,
+          { transactionId: String(transaction._id) },
+        );
+      }
+    }
+
     console.log(`${"━".repeat(60)}\n`.cyan);
   },
   {
