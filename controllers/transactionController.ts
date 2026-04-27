@@ -42,7 +42,8 @@ export const getTransactions = asyncHandler(async (req: Request, res: Response) 
   }
 
   if (search?.trim()) {
-    filter.merchant = { $regex: search.trim(), $options: "i" };
+    const escaped = search.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    filter.merchant = { $regex: escaped, $options: "i" };
   }
 
   if (dateFrom || dateTo) {

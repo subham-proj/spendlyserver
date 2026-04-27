@@ -4,6 +4,14 @@ import mongoose from "mongoose";
 import Groq from "groq-sdk";
 import { Transaction } from "../models/transactionModel.js";
 
+// Lazy singleton — only instantiated on first call so a missing key doesn't
+// crash the module and take down unrelated analytics endpoints with it.
+let _groq: Groq | null = null;
+function getGroq(): Groq {
+  if (!_groq) _groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+  return _groq;
+}
+
 export const getCategoryExpenses = asyncHandler(
   async (req: Request, res: Response) => {
     const userId = new mongoose.Types.ObjectId(req.userId!);
@@ -284,8 +292,7 @@ export const getAIInsights = asyncHandler(
     }
 
     try {
-      const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-      const completion = await groq.chat.completions.create({
+      const completion = await getGroq().chat.completions.create({
         model: "llama-3.3-70b-versatile",
         max_tokens: 600,
         response_format: { type: "json_object" },
