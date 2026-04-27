@@ -22,6 +22,7 @@ export interface ITransaction extends Document {
   amount: number | null;
   currency: string;
   merchant: string | null;
+  shortName: string | null;
   category: TransactionCategory | null;
   transactionType: TransactionType | null;
   rawSnippet: string;
@@ -61,6 +62,10 @@ const transactionSchema = new Schema<ITransaction>(
       default: "INR",
     },
     merchant: {
+      type: String,
+      default: null,
+    },
+    shortName: {
       type: String,
       default: null,
     },

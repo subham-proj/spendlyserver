@@ -106,7 +106,7 @@ export const getRecentTransactions = asyncHandler(
     const transactions = await Transaction.find({ userId, amount: { $ne: null } })
       .sort({ emailDate: -1 })
       .limit(limit)
-      .select("merchant amount currency category transactionType emailDate subject")
+      .select("merchant shortName amount currency category transactionType emailDate subject")
       .lean();
 
     res.json({ transactions });
