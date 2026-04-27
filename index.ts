@@ -9,6 +9,7 @@ import connectDB from "./utils/db.js";
 import userRoutes from "./routes/userRoutes.js";
 import gmailWebhookRoutes from "./routes/gmailWebhookRoutes.js";
 import analyticsRoutes from "./routes/analyticsRoutes.js";
+import transactionRoutes from "./routes/transactionRoutes.js";
 import {
   callbackHandler,
   mobileCallbackHandler,
@@ -53,6 +54,7 @@ app.use(bodyParser.urlencoded({ limit: "50mb", extended: true }));
 
 app.use("/api/users", userRoutes);
 app.use("/api/analytics", analyticsRoutes);
+app.use("/api/transactions", transactionRoutes);
 app.use("/webhook", gmailWebhookRoutes);
 app.get("/auth/callback", callbackHandler);
 app.get("/auth/mobile-callback", mobileCallbackHandler);
