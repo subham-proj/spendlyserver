@@ -88,4 +88,8 @@ const transactionSchema = new Schema<ITransaction>(
   },
 );
 
+// Composite indexes for efficient paginated queries
+transactionSchema.index({ userId: 1, emailDate: -1, _id: -1 }); // default sort (newest first)
+transactionSchema.index({ userId: 1, amount: -1, _id: -1 });    // amount sort
+
 export const Transaction = mongoose.model<ITransaction>("Transaction", transactionSchema);
