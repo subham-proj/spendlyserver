@@ -2,7 +2,9 @@ import asyncHandler from "express-async-handler";
 import { google } from "googleapis";
 import { User } from "../models/userModels.js";
 import { emailQueue } from "../queues/emailQueue.js";
+import { webhookReceived, emailJobsQueued } from "../utils/metrics.js";
 export const gmailWebhookHandler = asyncHandler(async (req, res) => {
+    webhookReceived.inc();
     const body = req.body;
     const rawData = body?.message?.data;
     if (!rawData) {
@@ -38,8 +40,10 @@ export const gmailWebhookHandler = asyncHandler(async (req, res) => {
     userOAuth2Client.on("tokens", async (newTokens) => {
         if (newTokens.access_token) {
             await User.findOneAndUpdate({ email: emailAddress.toLowerCase() }, {
-                accessToken: newTokens.access_token,
-                expiryDate: newTokens.expiry_date ?? null,
+                $set: {
+                    accessToken: newTokens.access_token,
+                    expiryDate: newTokens.expiry_date ?? null,
+                },
             });
         }
     });
@@ -57,7 +61,7 @@ export const gmailWebhookHandler = asyncHandler(async (req, res) => {
     const incomingId = BigInt(historyId);
     const storedId = user.lastHistoryId ? BigInt(user.lastHistoryId) : 0n;
     if (incomingId > storedId) {
-        await User.findOneAndUpdate({ email: emailAddress.toLowerCase() }, { lastHistoryId: historyId.toString() });
+        await User.findOneAndUpdate({ email: emailAddress.toLowerCase() }, { $set: { lastHistoryId: historyId.toString() } });
     }
     let historyResponse;
     try {
@@ -107,6 +111,7 @@ export const gmailWebhookHandler = asyncHandler(async (req, res) => {
                 date: emailDate,
                 messageId: msgResponse.data.id,
             });
+            emailJobsQueued.inc();
             await emailQueue.add("process-email", {
                 messageId: msgResponse.data.id ?? messageId,
                 userId: user._id.toString(),

@@ -34,6 +34,10 @@ const transactionSchema = new Schema({
         type: String,
         default: null,
     },
+    shortName: {
+        type: String,
+        default: null,
+    },
     category: {
         type: String,
         enum: ["food", "shopping", "travel", "utilities", "entertainment", "health", "finance", "transfer", "other"],
@@ -55,5 +59,8 @@ const transactionSchema = new Schema({
 }, {
     timestamps: true,
 });
+// Composite indexes for efficient paginated queries
+transactionSchema.index({ userId: 1, emailDate: -1, _id: -1 }); // default sort (newest first)
+transactionSchema.index({ userId: 1, amount: -1, _id: -1 }); // amount sort
 export const Transaction = mongoose.model("Transaction", transactionSchema);
 //# sourceMappingURL=transactionModel.js.map

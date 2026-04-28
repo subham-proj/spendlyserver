@@ -19,6 +19,8 @@ import { emailQueue } from "./queues/emailQueue.js";
 import { createBullBoard } from "@bull-board/api";
 import { BullMQAdapter } from "@bull-board/api/bullMQAdapter";
 import { ExpressAdapter } from "@bull-board/express";
+import { metricsMiddleware } from "./middleware/metricsMiddleware.js";
+import { register } from "./utils/metrics.js";
 
 dotenv.config();
 connectDB();
@@ -51,6 +53,13 @@ app.use(
 );
 app.use(bodyParser.json({ limit: "50mb" }));
 app.use(bodyParser.urlencoded({ limit: "50mb", extended: true }));
+app.use(metricsMiddleware);
+
+// Prometheus metrics endpoint — scraped by Prometheus every 15s
+app.get("/metrics", async (_req, res) => {
+  res.set("Content-Type", register.contentType);
+  res.end(await register.metrics());
+});
 
 app.use("/api/users", userRoutes);
 app.use("/api/analytics", analyticsRoutes);

@@ -1,6 +1,15 @@
 import mongoose, { Document } from "mongoose";
+export interface IUserPreferences {
+    currency: string;
+    notificationsEnabled: boolean;
+    themeMode: string;
+    expoPushToken: string | null;
+}
 export interface IUser extends Document {
     email: string;
+    name: string | null;
+    picture: string | null;
+    preferences: IUserPreferences;
     accessToken: string | null;
     refreshToken: string | null;
     scope: string | null;
