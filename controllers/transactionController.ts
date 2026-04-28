@@ -10,6 +10,8 @@ const VALID_CATEGORIES = [
   "entertainment", "health", "finance", "transfer", "other",
 ] as const;
 
+const EDITABLE_FIELDS = ["amount", "merchant", "shortName", "category", "transactionType"] as const;
+
 // GET /api/transactions
 export const getTransactions = asyncHandler(async (req: Request, res: Response) => {
   const userId = new mongoose.Types.ObjectId(req.userId!);
@@ -86,4 +88,86 @@ export const getTransactions = asyncHandler(async (req: Request, res: Response) 
     totalPages,
     hasNextPage,
   });
+});
+
+// PATCH /api/transactions/:id
+export const updateTransaction = asyncHandler(async (req: Request, res: Response) => {
+  const id = req.params.id as string;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    res.status(400).json({ error: "Invalid transaction id" });
+    return;
+  }
+
+  // Build update object from whitelisted fields only
+  const update: Record<string, unknown> = {};
+  for (const field of EDITABLE_FIELDS) {
+    if (!(field in req.body)) continue;
+    const value = req.body[field];
+
+    if (field === "amount") {
+      if (typeof value !== "number" || value <= 0) {
+        res.status(400).json({ error: "amount must be a positive number" });
+        return;
+      }
+      update.amount = value;
+    } else if (field === "category") {
+      if (!VALID_CATEGORIES.includes(value as any)) {
+        res.status(400).json({ error: `category must be one of: ${VALID_CATEGORIES.join(", ")}` });
+        return;
+      }
+      update.category = value;
+    } else if (field === "transactionType") {
+      if (!VALID_TYPES.includes(value as any)) {
+        res.status(400).json({ error: `transactionType must be one of: ${VALID_TYPES.join(", ")}` });
+        return;
+      }
+      update.transactionType = value;
+    } else if (field === "merchant" || field === "shortName") {
+      if (typeof value !== "string") {
+        res.status(400).json({ error: `${field} must be a string` });
+        return;
+      }
+      update[field] = value.trim();
+    }
+  }
+
+  if (Object.keys(update).length === 0) {
+    res.status(400).json({ error: "No valid fields provided" });
+    return;
+  }
+
+  const userId = new mongoose.Types.ObjectId(req.userId!);
+  const transaction = await Transaction.findOneAndUpdate(
+    { _id: id, userId },
+    { $set: update },
+    { new: true }
+  );
+
+  if (!transaction) {
+    res.status(404).json({ error: "Transaction not found" });
+    return;
+  }
+
+  res.json({ transaction });
+});
+
+// DELETE /api/transactions/:id
+export const deleteTransaction = asyncHandler(async (req: Request, res: Response) => {
+  const id = req.params.id as string;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    res.status(400).json({ error: "Invalid transaction id" });
+    return;
+  }
+
+  const userId = new mongoose.Types.ObjectId(req.userId!);
+  const transaction = await Transaction.findOneAndDelete({ _id: id, userId });
+
+  if (!transaction) {
+    res.status(404).json({ error: "Transaction not found" });
+    return;
+  }
+
+  res.status(200).json({ message: "Deleted" });
 });
