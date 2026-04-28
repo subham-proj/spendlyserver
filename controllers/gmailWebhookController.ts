@@ -3,6 +3,7 @@ import { Request, Response } from "express";
 import { google } from "googleapis";
 import { User } from "../models/userModels.js";
 import { emailQueue } from "../queues/emailQueue.js";
+import { webhookReceived, emailJobsQueued } from "../utils/metrics.js";
 
 interface PubSubPushPayload {
   message: {
@@ -20,6 +21,8 @@ interface GmailNotification {
 
 export const gmailWebhookHandler = asyncHandler(
   async (req: Request, res: Response) => {
+    webhookReceived.inc();
+
     const body = req.body as PubSubPushPayload;
     const rawData = body?.message?.data;
 
@@ -156,6 +159,7 @@ export const gmailWebhookHandler = asyncHandler(
           messageId: msgResponse.data.id,
         });
 
+        emailJobsQueued.inc();
         await emailQueue.add("process-email", {
           messageId: msgResponse.data.id ?? messageId,
           userId: user._id.toString(),

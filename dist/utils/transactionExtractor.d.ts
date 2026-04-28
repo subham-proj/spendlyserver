@@ -4,6 +4,7 @@ export interface ExtractionResult {
     amount: number | null;
     currency: string;
     merchant: string | null;
+    shortName: string | null;
     category: TransactionCategory | null;
     transactionType: TransactionType | null;
     transactionDate: string | null;

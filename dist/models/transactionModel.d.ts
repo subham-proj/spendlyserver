@@ -10,6 +10,7 @@ export interface ITransaction extends Document {
     amount: number | null;
     currency: string;
     merchant: string | null;
+    shortName: string | null;
     category: TransactionCategory | null;
     transactionType: TransactionType | null;
     rawSnippet: string;

@@ -1,6 +1,6 @@
 import express from "express";
 import { authenticate } from "../middleware/authMiddleware.js";
-import { getAnalyticsSummary, getDailyExpenses, getCategoryExpenses } from "../controllers/analyticsController.js";
+import { getAnalyticsSummary, getDailyExpenses, getCategoryExpenses, getRecentTransactions, getAIInsights } from "../controllers/analyticsController.js";
 const router = express.Router();
 // GET /api/analytics/summary?period=month|all
 router.get("/summary", authenticate, getAnalyticsSummary);
@@ -8,5 +8,9 @@ router.get("/summary", authenticate, getAnalyticsSummary);
 router.get("/daily-expenses", authenticate, getDailyExpenses);
 // GET /api/analytics/category-expenses?period=month|all  — spend by category for donut chart
 router.get("/category-expenses", authenticate, getCategoryExpenses);
+// GET /api/analytics/recent-transactions?limit=10  — last N transactions for the user
+router.get("/recent-transactions", authenticate, getRecentTransactions);
+// GET /api/analytics/insights?period=month|all  — AI-generated spending insights via Groq
+router.get("/insights", authenticate, getAIInsights);
 export default router;
 //# sourceMappingURL=analyticsRoutes.js.map
